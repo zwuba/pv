@@ -43,3 +43,90 @@ Nächste Schritte
 - Langzeitspeicher 'Problem' lösen, indem Tagessummen in einer SQL DB gespeichert werden (gibt es bessere Ideen?)
 
 Fragen & Feedback: https://twitter.com/tomdawon
+
+
+Client Setup How-2
+==================
+
+On your Fronius Inverter
+------------------------
+- Make sure the inverter has a fixed IP-Adress 
+- Log into your inverters webInterface and goto "Communication / ModBus"
+  - activate "Slave as Modbus TCP"
+  - set "SunSpec Model Type" to float
+
+
+
+On your "client system" (eg Raspberry Pi)
+-----------------------------------------
+Install Python:
+$ sudo apt install python3
+
+Install required packages:
+$ pip3 install pymodbus pyModbusTCP
+
+Create a SSH key (NO passphrase!) (this example is based on the file-name 'mysshkey'): 
+$ ssh-keygen -t rsa
+
+Check if remote connection is working: 
+$ ssh <username>@cloud-tom-07.nine.ch
+
+Test if there's a nice answer from the inverter by doing (remember to put in your inverter IP):
+$ curl -s "http://192.168.1.30/solar_api/v1/GetPowerFlowRealtimeData.fcgi"
+/solar_api/v1/GetMeterRealtimeData.cgi
+/solar_api/v1/GetStorageRealtimeData.cgi
+/solar_api/v1/GetInverterRealtimeData.cgi?DataCollection=CommonInverterData&Scope=Device
+
+Create python-script file that is reading your inverter data 
+$ TODO
+
+Test script:
+$ python3 testScript.py
+
+Output should look like:
+DCW: 1
+cham
+gen24
+0  --> this will be your actual PV power but at night it will be zero
+
+Install webserver: 
+$ sudo apt-get lighttpd
+
+Create file /etc/lighttpd/conf-enabled/11-python.conf
+***************
+server.modules += ( "mod_cgi" )
+cgi.assign = ( ".py" => "/usr/bin/python3")
+***************
+
+Perform:
+$ lighttpd reload
+
+Copy testScript.py to webroot
+
+Get json_exporter from github:
+$ git clone http://github.com/prometheus-community/json_exporter
+
+replace /json_exporter/config.yml from TomHug-git-repo
+$ git clone https://github.com/tomhug/pv
+
+Install Go: 
+$ sudo apt-get install golang
+
+then compile json_exporter: 
+/json_exporter$ sudo make build 
+
+
+Create file: /etc/lighttpd/conf-enabled/11-python.conf
+$ TODO
+
+Create file: /etc/systemd/system/json_exporter.service
+$ TODO
+
+Create file: /etc/systemd/system/http_forward.service
+(Remember to put the correct SSH-Key in here)
+$ TODO
+
+Test if json_exporter is running:
+$ curl localhost:7979 (is expected to return a 404 page not found)
+
+$ curl "localhost:7979/probe?module=gen24&target=http://192.168.1.30/solar_api/v1/GetPowerFlowRealtimeData.fcgi"
